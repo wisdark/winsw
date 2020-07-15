@@ -19,7 +19,7 @@ Example:
   <env name="JENKINS_HOME" value="%BASE%"/>
   <executable>java</executable>
   <arguments>-Xrs -Xmx256m -jar "%BASE%\jenkins.war" --httpPort=8080</arguments>
-  <logmode>rotate</logmode>
+  <log mode="roll"></log>
 </service>
 ```
 
@@ -88,13 +88,13 @@ Multiple elements can be used to specify multiple dependencies.
 
 ### logging
 
-Optionally set a different logging directory with `<logpath>` and startup `<logmode>`: reset (clear log), roll (move to \*.old) or append (default).
+Optionally set a different logging directory with `<logpath>` and startup `mode`: append (default), reset (clear log), ignore, roll (move to `\*.old`).
 
 See the [Logging and error reporting](loggingAndErrorReporting.md) page for more info.
 
-### argument
+### Arguments
 
-This element specifies the arguments to be passed to the executable. 
+`<argument>` element specifies the arguments to be passed to the executable. 
 Winsw will quote each argument if necessary, so do not put quotes in `<argument>` to avoid double quotation.
 
 ```xml
@@ -107,12 +107,12 @@ Winsw will quote each argument if necessary, so do not put quotes in `<argument>
 
 ### stopargument/stopexecutable
 
-When the service is requested to stop, winsw simply calls [TerminateProcess function](https://docs.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess) to kill the service instantly. 
-However, if `<stopargument>` elements are present, winsw will instead launch another process of `<executable>` (or `<stopexecutable>` if that's specified) with the `<stopargument>` arguments, and expects that to initiate the graceful shutdown of the service process.
+~~When the service is requested to stop, winsw simply calls [TerminateProcess function](https://docs.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess) to kill the service instantly.~~
+However, if `<stopargument>`/`<stoparguments>` elements are present, winsw will instead launch another process of `<executable>` (or `<stopexecutable>` if that's specified) with the specified arguments, and expects that to initiate the graceful shutdown of the service process.
 
 Winsw will then wait for the two processes to exit on its own, before reporting back to Windows that the service has terminated.
 
-When you use the `<stopargument>`, you must use `<startargument>` instead of `<argument>`. See the complete example below:
+When you use the `<stopargument>`/`<stoparguments>`, you must use `<startargument>`/`<startarguments>` instead of `<argument>`. See the complete example below:
 
 ```xml
 <executable>catalina.sh</executable>
@@ -122,9 +122,6 @@ When you use the `<stopargument>`, you must use `<startargument>` instead of `<a
 <stopexecutable>catalina.sh</stopexecutable>
 <stopargument>stop</stopargument>
 ```
-
-Note that the name of the element is `startargument` and not `startarguments`. 
-As such, to specify multiple arguments, you'll specify multiple elements.
 
 ### stoptimeout
 
@@ -173,7 +170,7 @@ This operation runs when the service is started, before the application specifie
 For servers requiring authentication some parameters must be specified depending on the type of authentication. Only the basic authentication requires additional sub-parameters. Supported authentication types are:
 
 * `none`:  default, must not be specified
-* `sspi`: Windows [Security Support Provider Interface](https://docs.microsoft.com/en-us/windows/win32/secauthn/sspi) including Kerberos, NTLM etc. 
+* `sspi`: Windows [Security Support Provider Interface](https://docs.microsoft.com/windows/win32/secauthn/sspi) including Kerberos, NTLM etc. 
 * `basic`: Basic authentication, sub-parameters:
 	* `user="UserName"`
 	* `password="Passw0rd"`
@@ -186,6 +183,10 @@ For target servers using the HTTPS transfer protocol it is necessary, that the C
 By default, the `download` command does not fail the service startup if the operation fails (e.g. `from` is not available).
 In order to force the download failure in such case, it is possible to specify the `failOnError` boolean attribute.
 
+To specify a custom proxy use the parameter `proxy` with the following formats:
+- With credentials: `http://USERNAME:PASSWORD@HOST:PORT/`.
+- Without credentials: `http://HOST:PORT/`.
+
 Examples:
 
 ```xml
@@ -193,17 +194,22 @@ Examples:
 
 <download from="http://example.com/some.dat" to="%BASE%\some.dat" failOnError="true"/>
 
+<download from="http://example.com/some.dat" to="%BASE%\some.dat" proxy="http://192.168.1.5:80/"/>
+
 <download from="https://example.com/some.dat" to="%BASE%\some.dat" auth="sspi" />
 
 <download from="https://example.com/some.dat" to="%BASE%\some.dat" failOnError="true"
           auth="basic" user="aUser" password="aPassw0rd" />
 
 <download from="http://example.com/some.dat" to="%BASE%\some.dat"
+	  proxy="http://aUser:aPassw0rd@192.168.1.5:80/"
           auth="basic" unsecureAuth="true"
           user="aUser" password="aPassw0rd" />
 ```
 
 This is another useful building block for developing a self-updating service.
+
+Since v2.7, if the destination file exists, WinSW will send its last write time in the `If-Modified-Since` header and skip downloading if `304 Not Modified` is received.
 
 ### log
 
